@@ -1,5 +1,5 @@
 #!/usr/bin
-
+rm -rf $HOME/.config/nvim
 #sudo dpkg-reconfigure locales
 sudo apt install tmux zsh mc sudo python3-neovim -y
 #install omz
