@@ -1,6 +1,6 @@
 #!/usr/bin
 
-sudo dpkg-reconfigure locales
+#sudo dpkg-reconfigure locales
 sudo apt install tmux zsh mc sudo 
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
 echo "source ${(q-)PWD}/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ${ZDOTDIR:-$HOME}/.zshrc
