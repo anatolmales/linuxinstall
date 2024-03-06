@@ -1,7 +1,7 @@
 #!/usr/bin
 
 #sudo dpkg-reconfigure locales
-sudo apt install tmux zsh mc sudo 
+sudo apt install tmux zsh mc sudo -y
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
 echo "source ${(q-)PWD}/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ${ZDOTDIR:-$HOME}/.zshrc
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
@@ -12,7 +12,7 @@ sudo mkdir -p /opt/nvim
 sudo mv nvim.appimage /opt/nvim/nvim
 chmod u+x /opt/nvim/nvim
 
-sudo apt-get install python3-neovim
+sudo apt-get install python3-neovim -y
 echo 'export PATH="$PATH:/opt/nvim/"' >> ~/.bashrc
 wget -O ~/.zshrc.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/zshrc
 wget -O ~/.tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
