@@ -15,7 +15,8 @@ sudo mkdir -p /opt/nvim
 sudo mv nvim.appimage /opt/nvim/nvim
 sudo apt-get install python3-neovim
 echo 'export PATH="$PATH:/opt/nvim/"' >> ~/.bashrc
-curl -O ~/.tmux.conf 
+wget -O ~/.zshrc.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/zshrc
+wget -O ~/.tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
 
 #install config nvim
 git clone https://github.com/anatolmales/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
