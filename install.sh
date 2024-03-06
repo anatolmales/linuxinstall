@@ -1,7 +1,8 @@
 #!/usr/bin
 rm -rf ~/.config/nvim
 rm -rf ~/.oh-my-zsh
-rm -rf ~/.zshrc.conf
+rm -rf ~/zsh-syntax-highlighting 
+rm -rf ~/.zshrc
 rm -rf ~/.tmux.conf
 
 #sudo dpkg-reconfigure locales
@@ -11,7 +12,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
 echo "source ${(q-)PWD}/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ${ZDOTDIR:-$HOME}/.zshrc
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-wget -O ~/.zshrc.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/zshrc
+wget -O ~/.zshrc https://raw.githubusercontent.com/anatolmales/linuxinstall/main/zshrc
 
 #install nvim
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
