@@ -1,6 +1,6 @@
 #!/usr/bin
-rm -rf $HOME/.config/nvim
-rm -rf $HOME/.oh-my-zsh
+rm -rf ~/.config/nvim
+rm -rf !/.oh-my-zsh
 rm -rf ~/.zshrc.conf
 rm -rf ~/.tmux.conf
 
