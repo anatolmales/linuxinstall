@@ -26,3 +26,4 @@ wget -O ~/.tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/
 #install config nvim
 git clone https://github.com/anatolmales/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
 
+chsh -s /bin/zsh
