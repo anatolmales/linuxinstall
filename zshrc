@@ -102,4 +102,3 @@ fi
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias scr="sudo screen -xRR"
 alias tm="sudo tmux attach || sudo tmux new"
-
