@@ -21,7 +21,8 @@ sudo mv nvim.appimage /opt/nvim/nvim
 chmod u+x /opt/nvim/nvim
 
 echo 'export PATH="$PATH:/opt/nvim/"' >> ~/.bashrc
-wget -O ~/.tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
+#wget -O ~/.tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
+wget -O /etc/tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
 
 #install config nvim
 git clone https://github.com/anatolmales/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
