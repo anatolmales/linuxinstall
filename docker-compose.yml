@@ -1,0 +1,143 @@
+services:
+  wgeasy:
+    networks:
+      - proxy
+    environment:
+      # ⚠️ Required:
+      # Change this to your host's public address
+      - PASSWORD_HASH=$$2y$$10$$hBCoykrB95WSzuV4fafBzOHWKu9sbyVa34GJr8VV5R/pIelfEMYyG
+#https://github.com/wg-easy/wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md
+      - PORT=51821
+      - WG_PORT=51820
+      - WG_HOST=IPADDRESS
+      - LANG=ru
+      - WG_PERSISTENT_KEEPALIVE=10
+      - WG_DEFAULT_ADDRESS=10.8.0.x
+      - WG_DEFAULT_ADDRESS_RANGE=24
+      - WG_DEFAULT_DNS=1.1.1.1
+      - WG_ALLOWED_IPS=0.0.0.0/0
+      - WG_MTU=1420
+      - UI_TRAFFIC_STATS=true
+      # Optional:
+      # - PASSWORD_HASH=$$2y$$10$$hBCoykrB95WSzuV4fafBzOHWKu9sbyVa34GJr8VV5R/pIelfEMYyG (needs double $$, hash of 'foobar123'; see "How_to_generate_an_bcrypt_hash.md" for generate the hash)
+      # - PORT=51821
+      # - WG_PORT=51820
+      # - WG_CONFIG_PORT=92820
+      # - WG_DEFAULT_ADDRESS=10.8.0.x
+      # - WG_DEFAULT_DNS=1.1.1.1
+      # - WG_MTU=1420
+      # - WG_ALLOWED_IPS=192.168.15.0/24, 10.0.1.0/24
+      # - WG_PERSISTENT_KEEPALIVE=25
+      # - WG_PRE_UP=echo "Pre Up" > /etc/wireguard/pre-up.txt
+      # - WG_POST_UP=echo "Post Up" > /etc/wireguard/post-up.txt
+      # - WG_PRE_DOWN=echo "Pre Down" > /etc/wireguard/pre-down.txt
+      # - WG_POST_DOWN=echo "Post Down" > /etc/wireguard/post-down.txt
+      # - UI_TRAFFIC_STATS=true
+      # - UI_CHART_TYPE=0 # (0 Charts disabled, 1 # Line chart, 2 # Area chart, 3 # Bar chart)
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wgeasy
+    volumes:
+      - ./wireguard:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+#      - "51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wgeasy-web-secure.rule=Host(`IPADDRESS`)"
+      - "traefik.http.routers.wgeasy-web-secure.entrypoints=ep-wgeasy-websecure"
+      - "traefik.http.routers.wgeasy-web-secure.tls=true"
+      - "traefik.http.routers.whoami-secure.tls.certresolver=myresolver"
+      - "traefik.http.services.wgeasy-web.loadbalancer.server.port=51821"
+
+
+  xui:
+    image: alireza7/x-ui:latest
+    container_name: xui
+    hostname: IPADDRESS
+    volumes:
+      - ./x-ui/:/etc/x-ui/
+      - ./letsencrypt:/letsencrypt
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      TZ: Asia/Novosibirsk
+      XRAY_VMESS_AEAD_FORCED: false
+    tty: true
+    network_mode: host
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    networks:
+      - proxy
+    command:
+      - --log.level=DEBUG
+      - --api.insecure=true
+      - --api.dashboard=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --certificatesresolvers.myresolver.acme.httpChallenge=true
+      - --certificatesresolvers.myresolver.acme.httpChallenge.entryPoint=web
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`IPADDRESS`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.dashboard.entrypoints=web,websecure"
+      - "traefik.http.middlewares.dashboard-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.dashboard-secure.rule=Host(`IPADDRESS`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.dashboard-secure.tls=true"
+      - "traefik.http.routers.dashboard-secure.service=api@internal"
+      - "traefik.http.routers.dashboard-secure.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.auth.basicauth.users=Oadmin:$$2y$$10$$hBCoykrB95WSzuV4fafBzOHWKu9sbyVa34GJr8VV5R/pIelfEMYyG"
+      - "traefik.http.services.dashboard-secure.loadbalancer.server.port=8080"
+    ports:
+      - 80:80
+#      - 443:443
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    depends_on:
+      - xui
+
+  certdumper:
+    image: ghcr.io/kereis/traefik-certs-dumper:latest
+    command: --restart-containers xui,who,wg-easy
+    volumes:
+    - ./letsencrypt:/traefik:ro
+    - ./letsencrypt/certs:/output:rw
+
+  who:
+    image: traefik/whoami
+    container_name: who
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`IPADDRESS`)"
+      - "traefik.http.routers.whoami.entrypoints=web,websecure"
+      - "traefik.http.routers.whoami.middlewares=websecure"
+      - "traefik.http.middlewares.whoami-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.whoami-secure.entrypoints=websecure"
+      - "traefik.http.routers.whoami-secure.rule=Host(`IPADDRESS`)"
+      - "traefik.http.routers.whoami-secure.tls=true"
+      - "traefik.http.routers.whoami-secure.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.auth.basicauth.users=Oadmin:$$2y$05$6qmWj0tcbnHd5uZyI.Ee4.dFFYdvdaawUj6Iv1dIY34KaeFoYAdH2"
+
+
+networks:
+  proxy:
+    name: proxy
+    external: true
