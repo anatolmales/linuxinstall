@@ -65,7 +65,7 @@ install_dependencies() {
     apt update && apt upgrade -y
     
     log "Установка необходимых пакетов..."
-    apt install -y mc curl wget sudo ca-certificates
+    apt install -y mc curl wget sudo ca-certificates gettext
     
     log "Установка Docker..."
     # Ключ Docker
@@ -100,6 +100,35 @@ setup_configs() {
     wget -O /etc/tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
 }
 
+# Подготовка docker-compose файла с envsubst
+setup_docker_compose() {
+    local ip_address="$1"
+    local password_hash="$2"
+    
+    log "Настройка docker-compose..."
+    
+    # Скачивание шаблона
+    wget -O /opt/docker/docker-compose-template.yml https://raw.githubusercontent.com/anatolmales/linuxinstall/refs/heads/main/docker-compose.yml
+    
+    # Экспорт переменных для envsubst
+    export IPADDRESS="$ip_address"
+    export PASSWORD_HASH="$password_hash"
+    
+    log "Замена переменных в конфиге..."
+    # Использование envsubst для подстановки переменных
+    envsubst '${IPADDRESS},${PASSWORD_HASH}' < /opt/docker/docker-compose-template.yml > /opt/docker/docker-compose.yml
+    
+    # Проверка результата
+    if [ ! -s /opt/docker/docker-compose.yml ]; then
+        error "Не удалось создать docker-compose.yml"
+    fi
+    
+    log "Проверка замены переменных..."
+    if grep -q '\${IPADDRESS}' /opt/docker/docker-compose.yml || grep -q '\${PASSWORD_HASH}' /opt/docker/docker-compose.yml; then
+        warn "Некоторые переменные не были заменены"
+    fi
+}
+
 # Основная установка
 main() {
     log "Начало установки..."
@@ -127,15 +156,8 @@ main() {
     # Создание директории
     mkdir -p /opt/docker/
     
-    # Скачивание и настройка docker-compose
-    log "Настройка docker-compose..."
-    wget -O /opt/docker/docker-compose-template.yml https://raw.githubusercontent.com/anatolmales/linuxinstall/refs/heads/main/docker-compose.yml
-    
-    # Замена переменных в конфиге
-    sed -i "s/IPADDRESS/$IPADDRESS/g" /opt/docker/docker-compose-template.yml
-    sed -i "s/\$\$2y\$\$10\$\$hBCoykrB95WSzuV4fafBzOHWKu9sbyVa34GJr8VV5R\/pIelfEMYyG/$PASSWORD_HASH/g" /opt/docker/docker-compose-template.yml
-    
-    mv /opt/docker/docker-compose-template.yml /opt/docker/docker-compose.yml
+    # Настройка docker-compose с envsubst
+    setup_docker_compose "$IPADDRESS" "$PASSWORD_HASH"
     
     # Запуск сервисов
     log "Запуск Docker сервисов..."
