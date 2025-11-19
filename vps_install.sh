@@ -93,32 +93,50 @@ echo "Найден внешний IP: $IP"
 
 # ---- 4) Интерактивный ввод пароля и генерация bcrypt HASH ----
 echo
-echo "=== Введите пароль для веб-интерфейса (пароль не будет показан) ==="
-# читаем дважды, проверка совпадения
-while true; do
+echo "=== Введите пароль для веб-интерфейса ==="
+echo "Подсказка: при вставке пароля из Windows-буфера может добавляться символ возврата каретки (CR). Скрипт удаляет символы '\\r' перед сравнением."
+echo "Вы можете вставить пароль. Скрипт попросит подтверждение (повторный ввод)."
+
+MAX_ATTEMPTS=5
+attempt=0
+PASSWORD=""
+PASSWORD2=""
+
+while [ $attempt -lt $MAX_ATTEMPTS ]; do
+  attempt=$((attempt+1))
+  # читаем дважды без эха
   read -s -p "Пароль: " PASSWORD
   echo
   read -s -p "Подтвердите пароль: " PASSWORD2
   echo
-  if [ "$PASSWORD" != "$PASSWORD2" ]; then
-    echo "Пароли не совпадают — попробуйте снова."
-  elif [ -z "$PASSWORD" ]; then
-    echo "Пароль пустой — попробуйте снова."
-  else
+
+  # удаляем возможные CR (\r), которые могут появиться при пасте
+  PASSWORD_CLEAN=${PASSWORD//$'\r'/}
+  PASSWORD2_CLEAN=${PASSWORD2//$'\r'/}
+
+  if [ "$PASSWORD_CLEAN" = "$PASSWORD2_CLEAN" ] && [ -n "$PASSWORD_CLEAN" ]; then
+    PASSWORD="$PASSWORD_CLEAN"
+    unset PASSWORD2 PASSWORD2_CLEAN PASSWORD_CLEAN
     break
   fi
+
+  echo "Пароли не совпадают — попробуйте снова. (Попытка $attempt из $MAX_ATTEMPTS)"
+  # на следующую итерацию очистим переменные
+  PASSWORD=""
+  PASSWORD2=""
 done
 
+if [ -z "${PASSWORD:-}" ]; then
+  echo "Ошибка: не удалось корректно ввести и подтвердить пароль за $MAX_ATTEMPTS попыток."
+  echo "Пожалуйста, запустите скрипт снова и внимательно введите пароль (убедитесь, что при вставке не добавляются дополнительные символы)."
+  exit 1
+fi
+
 # Генерация bcrypt через htpasswd (apache2-utils)
-# htpasswd выведет "user:$2y$...". Используем user 'admin' просто для генерации хэша.
 echo "=== Генерация bcrypt HASH (htpasswd) ==="
-# htpasswd возвращает код ошибки >0 если команда не доступна — проверяем
+BCRYPT_HASH=""
 if command -v htpasswd >/dev/null 2>&1; then
-  # -B bcrypt, -n выводит в stdout, -b использовали бы для без интерактива, но используем -nB:
-  BCRYPT_HASH=$(htpasswd -bnB admin "${PASSWORD}" 2>/dev/null | cut -d: -f2)
-  if [ -z "$BCRYPT_HASH" ]; then
-    echo "Ошибка генерации bcrypt через htpasswd. Попробуем через Docker (если доступен)..."
-  fi
+  BCRYPT_HASH=$(htpasswd -bnB admin "${PASSWORD}" 2>/dev/null | cut -d: -f2 || true)
 fi
 
 # Фоллбек: если htpasswd не сработал, пробуем через Docker (требует установленного Docker)
@@ -130,17 +148,16 @@ import sys, bcrypt
 p = sys.stdin.read().strip()
 h = bcrypt.hashpw(p.encode(), bcrypt.gensalt())
 print(h.decode())
-PY" <<<"$PASSWORD")
+PY" <<<"$PASSWORD" || true)
   fi
 fi
 
-# Ещё фоллбек: если всё совсем плохо — предупредить и выйти
 if [ -z "${BCRYPT_HASH:-}" ]; then
   echo "Не удалось сгенерировать bcrypt-хэш. Убедитесь, что установлен apache2-utils (htpasswd) или Docker."
   exit 1
 fi
 
-echo "bcrypt HASH успешно сгенерирован: ${BCRYPT_HASH}"
+echo "bcrypt HASH успешно сгенерирован."
 
 # ---- 5) Подстановка IP и HASH в docker-compose.yml ----
 echo "=== Подстановка IP и PASSWORD_HASH в $COMPOSE_FILE ==="
@@ -149,16 +166,13 @@ echo "=== Подстановка IP и PASSWORD_HASH в $COMPOSE_FILE ==="
 escaped_ip=$(printf '%s\n' "$IP" | sed -e 's/[\/&]/\\&/g')
 escaped_hash=$(printf '%s\n' "$BCRYPT_HASH" | sed -e 's/[\/&]/\\&/g')
 
-# Заменяем все вхождения IPADDRESS (включая в traefik email admin@IPADDRESS и т.д.)
+# Заменяем все вхождения IPADDRESS
 sed -i "s/IPADDRESS/$escaped_ip/g" "$COMPOSE_FILE"
 
-# Заменяем значение PASSWORD_HASH=... (т.к. в файле YAML строка выглядит как "- PASSWORD_HASH=$$2y$$...")
-# Найдём строку, где есть "PASSWORD_HASH=" и заменим всё после = на наш хеш
-# Используем perl для корректной работы с символами $
+# Заменяем значение PASSWORD_HASH=... (используем perl если доступен)
 if command -v perl >/dev/null 2>&1; then
   perl -0777 -pe "s/(PASSWORD_HASH=).*/\1$escaped_hash/s" -i "$COMPOSE_FILE"
 else
-  # fallback на sed (должно работать тоже)
   sed -i "s/\(PASSWORD_HASH=\).*$/\1$escaped_hash/" "$COMPOSE_FILE"
 fi
 
@@ -193,11 +207,9 @@ if openssl req -x509 -nodes -days 1000 -newkey rsa:2048 -keyout "$CERT_KEY" -out
 else
   echo "Флаг -addext не поддерживается. Генерирую через временный openssl.cnf (fallback)."
   TMP_CNF=$(mktemp)
-  # Берём системный конфиг если есть, иначе минимальный
   OPENSSL_SYS_CNF="/etc/ssl/openssl.cnf"
   if [ -f "$OPENSSL_SYS_CNF" ]; then
     cp "$OPENSSL_SYS_CNF" "$TMP_CNF"
-    # Добавим секцию v3_req в конец (если её нет)
     cat >> "$TMP_CNF" <<EOF
 
 [ v3_req_for_ip ]
@@ -208,7 +220,6 @@ IP.1 = $IP
 EOF
     openssl req -x509 -nodes -days 1000 -newkey rsa:2048 -keyout "$CERT_KEY" -out "$CERT_CRT" -subj "/CN=$IP" -extensions v3_req_for_ip -config "$TMP_CNF"
   else
-    # минимальный конфиг
     cat > "$TMP_CNF" <<EOF
 [req]
 distinguished_name = req_distinguished_name
@@ -229,7 +240,6 @@ EOF
   rm -f "$TMP_CNF"
 fi
 
-# Права на приватный ключ
 chmod 600 "$CERT_KEY" || true
 chown root:root "$CERT_KEY" || true
 
@@ -237,7 +247,7 @@ echo "Сертификат создан: $CERT_CRT"
 echo "Приватный ключ: $CERT_KEY"
 
 # ---- 9) Финальные сообщения и проверка статуса контейнеров ----
-echo "=== Проверка статуса контейнеров (docker ps --filter 'name=wgeasy' и т.д.) ==="
+echo "=== Проверка статуса контейнеров ==="
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}' || true
 
 echo
