@@ -4,7 +4,7 @@ BASHRC="$HOME/.bashrc"
 
 # Массив строк для добавления
 LINES=(
-'alias tm='tmux attach || tmux new'
+'alias tm='\''tmux attach || tmux new'\''
 'export HISTTIMEFORMAT="%h %d %H:%M:%S "'
 'export HISTFILESIZE=5000'
 'shopt -s histappend'
