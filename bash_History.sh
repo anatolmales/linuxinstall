@@ -31,5 +31,6 @@ else
     # Если скрипт запущен напрямую
     exec bash
 fi
+wget -O /etc/tmux.conf https://raw.githubusercontent.com/anatolmales/linuxinstall/main/tmux.conf
 
 echo ">>> Настройка завершена!"
